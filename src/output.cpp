@@ -2,7 +2,7 @@
 
 namespace cpp_utils {
 
-void print_critical_error(std::string str, bool end_line, bool new_line){
+void print_critical_error(const std::string& str, bool end_line, bool new_line){
     if(new_line){
         std::cout<<std::endl;
     }
@@ -12,7 +12,7 @@ void print_critical_error(std::string str, bool end_line, bool new_line){
     }
 }
 
-void print_error(std::string str, bool end_line, bool new_line){
+void print_error(const std::string& str, bool end_line, bool new_line){
     if(new_line){
         std::cout<<std::endl;
     }
@@ -22,7 +22,7 @@ void print_error(std::string str, bool end_line, bool new_line){
     }
 }
 
-void print_warning(std::string str, bool end_line, bool new_line){
+void print_warning(const std::string& str, bool end_line, bool new_line){
     if(new_line){
         std::cout<<std::endl;
     }
@@ -32,7 +32,7 @@ void print_warning(std::string str, bool end_line, bool new_line){
     }
 }
 
-void print_success(std::string str, bool end_line, bool new_line){
+void print_success(const std::string& str, bool end_line, bool new_line){
     if(new_line){
         std::cout<<std::endl;
     }
@@ -42,7 +42,7 @@ void print_success(std::string str, bool end_line, bool new_line){
     }
 }
 
-void print_info(std::string str, bool end_line, bool new_line){
+void print_info(const std::string& str, bool end_line, bool new_line){
     if(new_line){
         std::cout<<std::endl;
     }
@@ -52,7 +52,7 @@ void print_info(std::string str, bool end_line, bool new_line){
     }
 }
 
-void print_debug(std::string str, bool end_line, bool new_line){
+void print_debug(const std::string &str, bool end_line, bool new_line){
     if(new_line){
         std::cout<<std::endl;
     }

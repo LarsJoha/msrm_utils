@@ -199,8 +199,6 @@ template<typename T> bool read_json_param(const nlohmann::json& paramJ, const st
  */
 bool find_json_value(const nlohmann::json &json, const std::string& key);
 
-void resize_json_array(nlohmann::json& array, unsigned n);
-
 bool overwrite_valid_json(const nlohmann::json& source, nlohmann::json& sink);
 
 }

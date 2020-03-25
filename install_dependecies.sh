@@ -49,15 +49,3 @@ sudo make install
 
 cd ../..
 sudo rm -r json-rpc-cxx
-
-# websocket
-git clone https://github.com/eidheim/Simple-WebSocket-Server.git
-cd Simple-WebSocket-Server
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j$(nproc --all)
-sudo make install
-
-cd ../..
-sudo rm -r Simple-WebSocket-Server.git

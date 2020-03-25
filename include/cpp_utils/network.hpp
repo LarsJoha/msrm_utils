@@ -104,19 +104,19 @@ std::string convert_ip_to_default_format(const std::string &ip);
  * @param ip IP in default format to convert.
  * @return Returns the IP in normal format.
  */
-std::string convert_ip_from_default_format(const std::string& ip);
+std::string convert_ip_from_default_format(const std::string &ip);
 
 /**
  * Checks if a given ip address has a valid format.
  * @param ip IP to check.
  * @return True if ip has a valid format, false otherwise.
  */
-bool check_if_valid_ip(const std::string& ip);
+bool check_if_valid_ip(const std::string &ip);
 
 
 class CppHttpLibServerConnector {
 public:
-    explicit CppHttpLibServerConnector(jsonrpccxx::JsonRpcServer& server, const std::string& address, int port);
+    explicit CppHttpLibServerConnector(jsonrpccxx::JsonRpcServer& server, const std::string &address, int port);
     virtual ~CppHttpLibServerConnector();
 
     bool start_listening();
@@ -175,18 +175,18 @@ private:
 
 class JsonWebsocketServer{
 public:
-    JsonWebsocketServer(std::string address="localhost", unsigned port=9000, unsigned thread_pool_size=1, std::string endpoint="");
+    JsonWebsocketServer(const std::string& address="localhost", unsigned port=9000, unsigned thread_pool_size=1, const std::string& endpoint="");
     ~JsonWebsocketServer();
 
     void start_listening();
     void stop_listening();
 
-    bool bind_method(std::string name, std::function<nlohmann::json(const nlohmann::json& request)> method, std::set<std::string> arguments);
+    bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::set<std::string>& arguments);
 
 private:
 
     std::pair<bool, std::string> message_preprocessing(nlohmann::json &message);
-    bool check_if_method_exists(std::string method);
+    bool check_if_method_exists(const std::string& method);
     bool check_arguments(const nlohmann::json& request, const std::set<std::string> &arguments, nlohmann::json& response);
 
     SimpleWeb::SocketServer<SimpleWeb::WS> _server;

@@ -137,7 +137,7 @@ std::vector<std::string> get_ifaces(){
             tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
             char addressBuffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            ifaces.push_back(std::string(ifa->ifa_name));
+            ifaces.emplace_back(std::string(ifa->ifa_name));
         } else if (ifa->ifa_addr->sa_family == AF_INET6) { // check it is IP6
             // is a valid IP6 Address
             tmpAddrPtr=&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
@@ -212,14 +212,14 @@ std::string convert_ip_from_default_format(const std::string& ip){
     return ip_in_format;
 }
 
-bool check_if_valid_ip(const std::string &ip){
+bool check_if_valid_ip(const std::string& ip){
     struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
     return result != 0;
 
 }
 
-CppHttpLibServerConnector::CppHttpLibServerConnector(jsonrpccxx::JsonRpcServer &server, const std::string &address, int port) : _server(server), _address(address), _port(port) {
+CppHttpLibServerConnector::CppHttpLibServerConnector(jsonrpccxx::JsonRpcServer &server, const std::string& address, int port) : _server(server), _address(address), _port(port) {
     this->_httpServer.Post("/", [&](const httplib::Request &req, httplib::Response &res) {
         res.status = 200;
 //        std::cout<<"REQUEST: "<<req.body<<std::endl;
@@ -305,7 +305,7 @@ bool UDP::receive_message(char *msg){
 }
 
 
-JsonWebsocketServer::JsonWebsocketServer(std::string address, unsigned port, unsigned thread_pool_size, std::string endpoint){
+JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned port, unsigned thread_pool_size, const std::string& endpoint){
     this->_server.config.address=address;
     this->_server.config.port=port;
     this->_server.config.thread_pool_size=10;
@@ -399,7 +399,7 @@ std::pair<bool,std::string> JsonWebsocketServer::message_preprocessing(nlohmann:
     return std::pair<bool,std::string>(true,"");
 }
 
-bool JsonWebsocketServer::check_if_method_exists(std::string method){
+bool JsonWebsocketServer::check_if_method_exists(const std::string& method){
     if(this->_methods.find(method)==this->_methods.end()){
         return false;
     }else{
@@ -407,7 +407,7 @@ bool JsonWebsocketServer::check_if_method_exists(std::string method){
     }
 }
 
-bool JsonWebsocketServer::bind_method(std::string name, std::function<nlohmann::json (const nlohmann::json& request)> method,std::set<std::string> arguments){
+bool JsonWebsocketServer::bind_method(const std::string &name, std::function<nlohmann::json (const nlohmann::json& request)> method, const std::set<std::string> &arguments){
     if(this->check_if_method_exists(name)){
         cpp_utils::print_error("Cannot bind method with name "+name+" since it already exists.");
         return false;

@@ -29,10 +29,10 @@ std::vector<std::string> split_string(std::string s, const std::string &delimite
     size_t pos = 0;
     std::vector<std::string> token;
     while ((pos = s.find(delimiter)) != std::string::npos) {
-        token.push_back(s.substr(0, pos));
+        token.emplace_back(s.substr(0, pos));
         s.erase(0, pos + delimiter.length());
     }
-    token.push_back(s);
+    token.emplace_back(s);
     return token;
 }
 

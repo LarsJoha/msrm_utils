@@ -13,12 +13,6 @@ bool find_json_value(const nlohmann::json& json, const std::string &key){
     return false;
 }
 
-void resize_json_array(nlohmann::json& array, unsigned n){
-    for(unsigned i=0;i<n;i++){
-        array.push_back(0);
-    }
-}
-
 bool overwrite_valid_json(const nlohmann::json &source, nlohmann::json &sink){
     if(sink.empty()){
         sink=source;

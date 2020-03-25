@@ -32,12 +32,12 @@ std::string get_path_executable(char **argv){
     return std::string(abs_exe_path);
 }
 
-bool process_is_running(std::string process){
+bool process_is_running(const std::string &process){
     std::string cmd = "pidof -x " + process + " > /dev/null";
     return system(cmd.c_str()) == 0;
 }
 
-bool is_port_open(unsigned port, std::string host){
+bool is_port_open(unsigned port, const std::string& host){
 
     int sockfd;
     struct sockaddr_in serv_addr;

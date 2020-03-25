@@ -16,7 +16,7 @@ std::string get_path_executable(char **argv);
  * @param[in] process Name of the process.
  * @return True if the process is currently running, false if not.
  */
-bool process_is_running(std::string process);
+bool process_is_running(const std::string& process);
 
 /**
  * Check if specified port on specified host is in use.
@@ -24,6 +24,6 @@ bool process_is_running(std::string process);
  * @param host The host on which to check the port.
  * @return True if port on host is in use, false otherwise.
  */
-bool is_port_open(unsigned port, std::string host="localhost");
+bool is_port_open(unsigned port, const std::string &host="localhost");
 
 }
