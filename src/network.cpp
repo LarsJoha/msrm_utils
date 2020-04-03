@@ -31,13 +31,13 @@ bool is_valid_ip_address(const char *ipaddr)
     return result != 0;
 }
 
-std::string get_own_ip(const std::string &iface){
+std::string get_own_ip(const char *iface){
     struct ifaddrs * ifAddrStruct=NULL;
     struct ifaddrs * ifa=NULL;
     void * tmpAddrPtr=NULL;
 
     std::string ip="none";
-    std::string interface;
+    char* interface;
 
     getifaddrs(&ifAddrStruct);
     for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
@@ -49,8 +49,8 @@ std::string get_own_ip(const std::string &iface){
             tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
             char addressBuffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            interface=std::string(ifa->ifa_name);
-            if(interface==iface){
+            interface=ifa->ifa_name;
+            if(strcmp(interface,iface)){
                 ip=std::string(addressBuffer);
             }
         } else if (ifa->ifa_addr->sa_family == AF_INET6) {
@@ -59,7 +59,7 @@ std::string get_own_ip(const std::string &iface){
             char addressBuffer[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, tmpAddrPtr, addressBuffer, INET6_ADDRSTRLEN);
             //            printf("%s IP Address %s\n", ifa->ifa_name, addressBuffer);
-            interface=std::string(ifa->ifa_name);
+            interface=ifa->ifa_name;
             //            if(interface==iface){
             //                ip=std::string(addressBuffer);
             //            }
@@ -69,11 +69,11 @@ std::string get_own_ip(const std::string &iface){
     return ip;
 }
 
-std::string get_ip_by_hostname(const std::string &hostname){
-    hostent * record = gethostbyname(hostname.c_str());
+std::string get_ip_by_hostname(const char *hostname){
+    hostent * record = gethostbyname(hostname);
     if(record == NULL)
     {
-        print_error(hostname+" is unavailable.");
+        print_error(std::string(hostname)+" is unavailable.");
         return "";
     }
     in_addr * address = (in_addr * )record->h_addr;
@@ -423,7 +423,7 @@ bool JsonWebsocketServer::check_arguments(const nlohmann::json &request, const s
         return false;
     }
     for(std::string a : arguments){
-        if(!cpp_utils::find_json_value(request,a)){
+        if(!cpp_utils::find_json_value(request,a.c_str())){
             response["result"]="Could not find parameter "+a+" in request.";
             return false;
         }

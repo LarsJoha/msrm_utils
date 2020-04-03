@@ -110,7 +110,7 @@ template<typename T> bool write_json_array(nlohmann::json& paramJ, const std::ve
  * @param param Target Eigen::Matrix type. Has to be of matching size with the json value.
  * @return True if operation is successful, false otherwise.
  */
-template<typename T> bool read_json_param(const nlohmann::json& paramJ, const std::string key, T& param){
+template<typename T> bool read_json_param(const nlohmann::json& paramJ, const char* key, T& param){
     try{
         if(!paramJ.contains(key)){
             return false;
@@ -164,7 +164,7 @@ template<typename T,std::size_t S1,std::size_t S2> bool read_json_param(const nl
  * @param param Target Eigen::Matrix type. Has to be of matching size with the json value.
  * @return True if operation is successful, false otherwise.
  */
-template<typename T,std::size_t S1,std::size_t S2> bool read_json_param(const nlohmann::json& paramJ, const std::string key, Eigen::Matrix<T,S1,S2>& param){
+template<typename T,std::size_t S1,std::size_t S2> bool read_json_param(const nlohmann::json& paramJ, const char* key, Eigen::Matrix<T,S1,S2>& param){
     try{
         if(!paramJ.contains(key)){
             return false;
@@ -198,7 +198,7 @@ template<typename T,std::size_t S1,std::size_t S2> bool read_json_param(const nl
  * @param param Target std::array type. Has to be of matching size with the json value.
  * @return True if operation is successful, false otherwise.
  */
-template<typename T> bool read_json_param(const nlohmann::json& paramJ, const std::string key, std::vector<T>& param){
+template<typename T> bool read_json_param(const nlohmann::json& paramJ, const char* key, std::vector<T>& param){
     try{
         if(!paramJ.contains(key)){
             return false;
@@ -226,7 +226,7 @@ template<typename T> bool read_json_param(const nlohmann::json& paramJ, const st
  * @param key Key to search for.
  * @return Returns true if key is found, false otherwise.
  */
-bool find_json_value(const nlohmann::json &json, const std::string& key);
+bool find_json_value(const nlohmann::json &json, const char *key);
 
 bool overwrite_valid_json(const nlohmann::json& source, nlohmann::json& sink);
 

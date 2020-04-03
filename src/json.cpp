@@ -1,8 +1,9 @@
 #include "cpp_utils/json.hpp"
+#include "catch/catch.hpp"
 
 namespace cpp_utils {
 
-bool find_json_value(const nlohmann::json& json, const std::string &key){
+bool find_json_value(const nlohmann::json& json, const char* key){
     try{
         if(json.contains(key)){
             return true;

@@ -46,14 +46,14 @@ bool is_valid_ip_address(const char *ipaddr);
  * @param iface Network interface to check.
  * @return IP address as std::string for the specified interface.
  */
-std::string get_own_ip(const std::string& iface);
+std::string get_own_ip(const char* iface);
 
 /**
  * Returns the IP address of the indicated hostname.
  * @param hostname Target hostname.
  * @return IP address as std::string for the specified hostname.
  */
-std::string get_ip_by_hostname(const std::string& hostname);
+std::string get_ip_by_hostname(const char* hostname);
 
 /**
  * Returns the subnets for all network interfaces.

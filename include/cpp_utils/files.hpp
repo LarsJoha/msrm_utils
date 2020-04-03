@@ -9,6 +9,7 @@
 #include <vector>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cstring>
 
 namespace cpp_utils {
 
@@ -16,14 +17,14 @@ namespace cpp_utils {
  * Returns the current working directory i.e. where the executable is located.
  * @return Path the the executable as std::string.
  */
-std::string get_current_directory();
+void get_current_directory(char* path);
 
 /**
  * Checks whether the indicated file exists.
  * @param[in] file The path to the file including the filename.
  * @return True if file exists, false otherwise.
  */
-bool check_if_file_exists(const std::string &file);
+bool check_if_file_exists(const char* file);
 
 /**
  * Writes the given data into the indicated file. The data is appended at the last line of the file.
@@ -31,7 +32,7 @@ bool check_if_file_exists(const std::string &file);
  * \param[in] file The path to the target file including the filename.
  * \param[in] If true a new line is appended at the end of the current line.
  */
-template<typename T, std::size_t S> void write_data_to_file(const std::array<T, S>& data, const std::string& file, bool newline=false){
+template<typename T, std::size_t S> void write_data_to_file(const std::array<T, S>& data, const char* file, bool newline=false){
     std::ofstream s;
     s.open(file,std::ios::app);
 
