@@ -2,15 +2,21 @@
 
 #include "cpp_utils/files.hpp"
 #include "cpp_utils/output.hpp"
+#include "cpp_utils/json.hpp"
 
-namespace cpp_utils{
+#include <chrono>
+#include <bits/stdc++.h>
+#include <cerrno>
+#include <cstring>
 
-int ping(const char *ipaddr) {
+namespace msrm_utils{
+
+bool ping(const char *ipaddr) {
     char *command = NULL;
     FILE *fp;
     int stat = 0;
     //  asprintf (&command, "%s %s -q 2>&1", "fping", ipaddr);
-    int rtn = asprintf (&command, "%s %s -q -r 0 -t 50 2>&1", "fping", ipaddr);
+    int rtn = asprintf (&command, "%s %s -q -r 0 -t 5 2>&1", "fping", ipaddr);
     //    printf("%s\n",command);
     fp = popen(command, "r");
     if (fp == NULL) {
@@ -20,23 +26,64 @@ int ping(const char *ipaddr) {
     }
     stat = pclose(fp);
     free(command);
-    return WEXITSTATUS(stat);
+    if(WEXITSTATUS(stat)==0){
+        return true;
+    }else{
+        return false;
+    }
 }
 
 /*  Check if an ip address is valid */
-bool is_valid_ip_address(const char *ipaddr)
-{
+bool is_valid_ip_address(const char *ipaddr){
     struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ipaddr, &(sa.sin_addr));
     return result != 0;
 }
 
-std::string get_own_ip(const char *iface){
+bool is_port_available(const char* host, unsigned port){
+    if(port>65535){
+        std::cout<<"Port number must be between 0 and 65535"<<std::endl;
+        return false;
+    }
+    int sockfd;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        return false;
+    }
+
+    server = gethostbyname(host);
+
+    if (server == NULL) {
+        return false;
+    }
+
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr,
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+
+    serv_addr.sin_port = htons(port);
+    bool open;
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
+        open=true;
+    } else {
+        open=false;
+    }
+
+    close(sockfd);
+    return open;
+}
+
+std::optional<std::string> get_own_ip(const char *iface){
     struct ifaddrs * ifAddrStruct=NULL;
     struct ifaddrs * ifa=NULL;
     void * tmpAddrPtr=NULL;
 
-    std::string ip="none";
+    std::optional<std::string> ip;
     char* interface;
 
     getifaddrs(&ifAddrStruct);
@@ -50,8 +97,8 @@ std::string get_own_ip(const char *iface){
             char addressBuffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
             interface=ifa->ifa_name;
-            if(strcmp(interface,iface)){
-                ip=std::string(addressBuffer);
+            if(strcmp(interface,iface)==0){
+                ip.emplace(std::string(addressBuffer));
             }
         } else if (ifa->ifa_addr->sa_family == AF_INET6) {
             // is a valid IP6 Address
@@ -69,16 +116,17 @@ std::string get_own_ip(const char *iface){
     return ip;
 }
 
-std::string get_ip_by_hostname(const char *hostname){
+std::optional<std::string> get_ip_by_hostname(const char *hostname){
+    if(!ping(hostname)){
+        return {};
+    }
     hostent * record = gethostbyname(hostname);
-    if(record == NULL)
+    if(record == nullptr)
     {
-        print_error(std::string(hostname)+" is unavailable.");
-        return "";
+        return {};
     }
     in_addr * address = (in_addr * )record->h_addr;
-    std::string ip_address = inet_ntoa(* address);
-    return ip_address;
+    return std::string(inet_ntoa(* address));
 }
 
 std::map<std::string,std::string> get_subnets(){
@@ -120,12 +168,12 @@ std::map<std::string,std::string> get_subnets(){
     return ifaces;
 }
 
-std::vector<std::string> get_ifaces(){
+std::set<std::string> get_ifaces(){
     struct ifaddrs * ifAddrStruct=NULL;
     struct ifaddrs * ifa=NULL;
     void * tmpAddrPtr=NULL;
 
-    std::vector<std::string> ifaces;
+    std::set<std::string> ifaces;
 
     getifaddrs(&ifAddrStruct);
     for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
@@ -137,47 +185,16 @@ std::vector<std::string> get_ifaces(){
             tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
             char addressBuffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            ifaces.emplace_back(std::string(ifa->ifa_name));
+            ifaces.emplace(ifa->ifa_name);
         } else if (ifa->ifa_addr->sa_family == AF_INET6) { // check it is IP6
             // is a valid IP6 Address
             tmpAddrPtr=&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
             char addressBuffer[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, tmpAddrPtr, addressBuffer, INET6_ADDRSTRLEN);
-            printf("%s IP Address %s\n", ifa->ifa_name, addressBuffer);
         }
     }
     if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
     return ifaces;
-}
-
-bool rpc_call(const std::string &address, unsigned port, const std::string &method, const jsonrpccxx::positional_parameter& request, nlohmann::json& response, long timeout, unsigned id){
-    try{
-        CppHttpLibClientConnector httpClient(address, port);
-        jsonrpccxx::JsonRpcClient client(httpClient, jsonrpccxx::version::v2);
-        response = client.CallMethod<nlohmann::json>(1,method,request);
-        return true;
-    }catch(const nlohmann::json::exception& e){
-        std::cout<<e.what()<<std::endl;
-        return false;
-    }catch(const jsonrpccxx::JsonRpcException& e){
-        std::cout<<e.what()<<std::endl;
-        return false;
-    }
-}
-
-bool rpc_call_thr(const std::string &address, unsigned port, const std::string &method, nlohmann::json request, nlohmann::json& response, long timeout, unsigned id){
-    try{
-        CppHttpLibClientConnector httpClient(address, port);
-        jsonrpccxx::JsonRpcClient client(httpClient, jsonrpccxx::version::v2);
-        response = client.CallMethod<nlohmann::json>(1,method,{request});
-        return true;
-    }catch(const nlohmann::json::exception& e){
-        std::cout<<e.what()<<std::endl;
-        return false;
-    }catch(const jsonrpccxx::JsonRpcException& e){
-        std::cout<<e.what()<<std::endl;
-        return false;
-    }
 }
 
 
@@ -212,105 +229,97 @@ std::string convert_ip_from_default_format(const std::string& ip){
     return ip_in_format;
 }
 
-bool check_if_valid_ip(const std::string& ip){
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
-    return result != 0;
-
-}
-
-CppHttpLibServerConnector::CppHttpLibServerConnector(jsonrpccxx::JsonRpcServer &server, const std::string& address, int port) : _server(server), _address(address), _port(port) {
-    this->_httpServer.Post("/", [&](const httplib::Request &req, httplib::Response &res) {
+JsonRPCServer::JsonRPCServer(const std::string& address, unsigned port) : m_address(address.c_str()), m_port(port) {
+    m_http_server.Post("/", [&](const httplib::Request &req, httplib::Response &res) {
         res.status = 200;
-//        std::cout<<"REQUEST: "<<req.body<<std::endl;
-        res.set_content(server.HandleRequest(req.body), "application/json");
-//        std::cout<<"RESPONSE: "<<res.body<<std::endl;
+        //        std::cout<<"REQUEST: "<<req.body<<std::endl;
+        res.set_content(m_server.HandleRequest(req.body), "application/json");
+        //        std::cout<<"RESPONSE: "<<res.body<<std::endl;
     });
 }
 
-CppHttpLibServerConnector::~CppHttpLibServerConnector(){
+JsonRPCServer::~JsonRPCServer(){
     this->stop_listening();
 }
 
-bool CppHttpLibServerConnector::start_listening(){
-    if (this->_httpServer.is_running())
+bool JsonRPCServer::start_listening(){
+    if(m_port>65535){
+        std::cout<<"Port number must be between 0 and 65535"<<std::endl;
         return false;
-    this->_thread = std::thread([this]() { this->_httpServer.listen(this->_address.c_str(), this->_port); });
+    }
+    if (m_http_server.is_running())
+        return false;
+    if(!m_http_server.bind_to_port(m_address.c_str(),m_port,2)){
+        return false;
+    }
+    m_server_thread = std::thread([this]() { m_http_server.listen_after_bind(); });
+    std::chrono::time_point t_start = std::chrono::system_clock::now();
+    while(!m_http_server.is_running()){
+        std::chrono::time_point t_now = std::chrono::system_clock::now();
+        double t = std::chrono::duration_cast<std::chrono::seconds>(t_now-t_start).count();
+        if(t>5){
+            return false;
+        }
+    }
     return true;
 }
 
-void CppHttpLibServerConnector::stop_listening(){
-    if (this->_httpServer.is_running()) {
-        this->_httpServer.stop();
-        this->_thread.join();
+void JsonRPCServer::stop_listening(){
+    if (m_http_server.is_running()) {
+        m_http_server.stop();
+        if(m_server_thread.joinable()){
+            m_server_thread.join();
+        }
     }
 }
 
-CppHttpLibClientConnector::CppHttpLibClientConnector(const std::string &host, int port, double timeout) : _httpClient(host.c_str(), port), _timeout(timeout) {
-
+bool JsonRPCServer::bind_method(const std::string &name, std::function<nlohmann::json (const nlohmann::json &)> method, const std::vector<std::string> &arguments){
+    return m_server.Add(name,jsonrpccxx::MethodHandle(method),arguments);
 }
 
-std::string CppHttpLibClientConnector::Send(const std::string &request){
-    this->_httpClient.set_timeout_sec(this->_timeout);
-    auto res = this->_httpClient.Post("/", request, "application/json");
+JsonRPCClient::JsonRPCClient(const char* host, int port, double timeout) : m_http_client(host, port), m_timeout(timeout),m_rpc_client(*this,jsonrpccxx::version::v2) {
+    m_http_client.set_timeout_sec(timeout);
+}
+
+std::string JsonRPCClient::Send(const std::string &request){
+    m_http_client.set_timeout_sec(m_timeout);
+    auto res = m_http_client.Post("/", request, "application/json");
     if (!res || res->status != 200) {
         throw jsonrpccxx::JsonRpcException(-32003, "client connector error, received status != 200");
     }
     return res->body;
 }
 
-UDP::UDP(){
-
-}
-
-UDP::~UDP(){
-
-}
-
-bool UDP::initialize_sender(){
-    if ((this->_s_send=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
-        print_error("Could not initialize socket.");
-        std::cout<<std::strerror<<std::endl;
+bool JsonRPCClient::send(const std::string &method, const nlohmann::json &request){
+    try{
+        m_response = m_rpc_client.CallMethod<nlohmann::json>(0,method,{request});
+        return true;
+    }catch(const nlohmann::json::exception& e){
+        std::cout<<e.what()<<std::endl;
+        return false;
+    }catch(const jsonrpccxx::JsonRpcException& e){
+        std::cout<<e.what()<<std::endl;
         return false;
     }
-
-    int broadcastEnable=this->_broadcast;
-    int ret=setsockopt(this->_s_send, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
-    if(ret<0){
-        print_error("Could not set socket options.");
-        std::cout<<std::strerror<<std::endl;
-        return false;
-    }
-
-
-    memset((char *) &this->_si_other, 0, sizeof(this->_si_other));
-    this->_si_other.sin_family = AF_INET;
-    this->_si_other.sin_port = htons(this->_port_send);
-
-    inet_aton(this->_ip_send.c_str() , &this->_si_other.sin_addr);
-    return true;
 }
 
-bool UDP::initialize_receiver(){
-    return true;
+void JsonRPCClient::get_response(nlohmann::json &response){
+    response=m_response;
 }
 
-bool UDP::send_message(const char *msg){
-    return true;
+bool JsonRPCClient::call_method(const std::string &address, unsigned port, const std::string &method, const nlohmann::json &request, nlohmann::json &response, unsigned timeout){
+    JsonRPCClient client(address.c_str(),port,timeout);
+    bool result = client.send(method,request);
+    client.get_response(response);
+    return result;
 }
-
-bool UDP::receive_message(char *msg){
-    return true;
-}
-
 
 JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned port, unsigned thread_pool_size, const std::string& endpoint){
-    this->_server.config.address=address;
-    this->_server.config.port=port;
-    this->_server.config.thread_pool_size=10;
+    m_server.config.address=address;
+    m_server.config.port=port;
+    m_server.config.thread_pool_size=10;
 
-    auto &echo = this->_server.endpoint["^/"+endpoint+"/?$"];
+    auto &echo = m_server.endpoint["^/"+endpoint+"/?$"];
 
     echo.on_message = [this](std::shared_ptr<SimpleWeb::SocketServer<SimpleWeb::WS>::Connection> connection, std::shared_ptr<SimpleWeb::SocketServer<SimpleWeb::WS>::InMessage> message_raw) {
 
@@ -323,20 +332,26 @@ JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned po
                 message["method"].get_to(method);
                 if(!this->check_if_method_exists(method)){
                     response["result"]="Method " + method + " not known.";
+                    response["error"]=true;
                 }else{
-                    if(this->check_arguments(message["request"],this->_arguments[method],response)){
-                        response["result"]=this->_methods[method](message["request"]);
+                    if(this->check_arguments(message["request"],m_method_arguments[method],response)){
+                        response["result"]=m_method_callbacks[method](message["request"]);
+                    }else{
+                        response["error"]=true;
                     }
                 }
             }else{
                 response["result"]=result.second;
+                response["error"]=true;
             }
         }catch(const nlohmann::detail::type_error& e){
             std::cout<<e.what()<<std::endl;
             response["result"]=e.what();
+            response["error"]=true;
         }catch(const nlohmann::detail::parse_error& e){
             std::cout<<e.what()<<std::endl;
             response["result"]=e.what();
+            response["error"]=true;
         }
         auto out_message = response.dump();
 
@@ -351,12 +366,12 @@ JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned po
     };
 
     echo.on_open = [](std::shared_ptr<SimpleWeb::SocketServer<SimpleWeb::WS>::Connection> connection) {
-//        std::cout << "Server: Opened connection " << connection.get() << std::endl;
+        //        std::cout << "Server: Opened connection " << connection.get() << std::endl;
     };
 
     // See RFC 6455 7.4.1. for status codes
     echo.on_close = [](std::shared_ptr<SimpleWeb::SocketServer<SimpleWeb::WS>::Connection> connection, int status, const std::string & /*reason*/) {
-//        std::cout << "Server: Closed connection " << connection.get() << " with status code " << status << std::endl;
+        //        std::cout << "Server: Closed connection " << connection.get() << " with status code " << status << std::endl;
     };
 
     // Can modify handshake response headers here if needed
@@ -372,24 +387,38 @@ JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned po
 }
 
 JsonWebsocketServer::~JsonWebsocketServer(){
-
+    stop_listening();
 }
 
-void JsonWebsocketServer::start_listening(){
-    this->_thread = std::thread([this]() {
-        this->_server.start();
+bool JsonWebsocketServer::start_listening(){
+    if(!is_port_available("localhost",m_server.config.port)){
+        std::cout<<"Port "+std::to_string(m_server.config.port)+" is unavailable."<<std::endl;
+        return false;
+    }
+    m_server_thread = std::thread([this](){
+        try{
+            m_server.start();
+        }catch(const boost::exception_detail::clone_impl<boost::exception_detail::error_info_injector<boost::system::system_error> >& e){
+            std::cout<<e.what()<<std::endl;
+            return;
+        }
     });
+    return true;
 }
 
 void JsonWebsocketServer::stop_listening(){
-    this->_server.stop();
+    m_server.stop();
+    sleep(1);
+    if(m_server_thread.joinable()){
+        m_server_thread.join();
+    }
 }
 
 std::pair<bool,std::string> JsonWebsocketServer::message_preprocessing(nlohmann::json &message){
     try{
-        if(!cpp_utils::find_json_value(message, "method")) return std::pair<bool,std::string>(false,"Message header does not contain <method>.");
+        if(message.find("method")==message.end()) return std::pair<bool,std::string>(false,"Message header does not contain <method>.");
         if(!message["method"].is_string()) return std::pair<bool,std::string>(false,"Method is not a readable string.");
-        if(!cpp_utils::find_json_value(message,"request")){
+        if(message.find("request")==message.end()){
             message["request"]=nlohmann::json();
         }
     }catch(const nlohmann::detail::type_error& e){
@@ -400,35 +429,333 @@ std::pair<bool,std::string> JsonWebsocketServer::message_preprocessing(nlohmann:
 }
 
 bool JsonWebsocketServer::check_if_method_exists(const std::string& method){
-    if(this->_methods.find(method)==this->_methods.end()){
+    if(m_method_callbacks.find(method)==m_method_callbacks.end()){
         return false;
     }else{
         return true;
     }
 }
 
-bool JsonWebsocketServer::bind_method(const std::string &name, std::function<nlohmann::json (const nlohmann::json& request)> method, const std::set<std::string> &arguments){
+bool JsonWebsocketServer::bind_method(const std::string &name, std::function<nlohmann::json (const nlohmann::json& request)> method, const std::vector<std::string> &arguments){
     if(this->check_if_method_exists(name)){
-        cpp_utils::print_error("Cannot bind method with name "+name+" since it already exists.");
+        msrm_utils::print_error("Cannot bind method with name "+name+" since it already exists.");
         return false;
     }
-    this->_methods.insert(std::pair<std::string,std::function<nlohmann::json(const nlohmann::json&)> >(name, method));
-    this->_arguments.insert(std::pair<std::string,std::set<std::string> >(name,arguments));
+    m_method_callbacks.insert(std::pair<std::string,std::function<nlohmann::json(const nlohmann::json&)> >(name, method));
+    m_method_arguments.insert(std::pair<std::string,std::vector<std::string> >(name,arguments));
     return true;
 }
 
-bool JsonWebsocketServer::check_arguments(const nlohmann::json &request, const std::set<std::string> &arguments, nlohmann::json &response){
+bool JsonWebsocketServer::check_arguments(const nlohmann::json &request, const std::vector<std::string> &arguments, nlohmann::json &response){
     if(!request.is_object() && !request.is_null()){
         response["result"]="Request must be a json object (can be null).";
         return false;
     }
-    for(std::string a : arguments){
-        if(!cpp_utils::find_json_value(request,a.c_str())){
+    for(const std::string& a : arguments){
+        if(request.find(a)==request.end()){
             response["result"]="Could not find parameter "+a+" in request.";
             return false;
         }
     }
     return true;
+}
+
+JsonWebsocketClient::JsonWebsocketClient(const std::string& address, unsigned port, const std::string& endpoint):m_client(address+":"+std::to_string(port)+"/"+endpoint),m_response(nlohmann::json()),m_error_flag(false){
+
+    m_client.on_message = [this](std::shared_ptr<SimpleWeb::SocketClient<SimpleWeb::WS>::Connection> connection, std::shared_ptr<SimpleWeb::SocketClient<SimpleWeb::WS>::InMessage> in_message) {
+        m_response = nlohmann::json::parse(in_message->string());
+        if(m_response.find("error")!=m_response.end()){
+            m_error_flag=true;
+            if(m_response.find("result")==m_response.end()){
+                std::cout<<"Unknown error at json websocket server";
+            }else{
+                std::cout<<m_response["result"]<<std::endl;
+            }
+        }
+        connection->send_close(1000);
+    };
+
+    m_client.on_close = [](std::shared_ptr<SimpleWeb::SocketClient<SimpleWeb::WS>::Connection> /*connection*/, int status, const std::string & /*reason*/) {
+    };
+
+    // See http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/reference.html, Error Codes for error code meanings
+    m_client.on_error = [this](std::shared_ptr<SimpleWeb::SocketClient<SimpleWeb::WS>::Connection> /*connection*/, const SimpleWeb::error_code &ec) {
+        m_error_flag=true;
+        std::cout << "json websocket client: Error: " << ec << ", error message: " << ec.message() << std::endl;
+    };
+}
+
+bool JsonWebsocketClient::send(const std::string &method, const nlohmann::json &request){
+    nlohmann::json message;
+    message["method"]=method;
+    message["request"]=request;
+    m_client.on_open = [&message](std::shared_ptr<SimpleWeb::SocketClient<SimpleWeb::WS>::Connection> connection) {
+        connection->send(message.dump());
+    };
+    m_client.start();
+    if(m_error_flag){
+        return false;
+    }
+    return true;
+}
+
+void JsonWebsocketClient::get_response(nlohmann::json &response){
+    response=m_response;
+}
+
+bool JsonWebsocketClient::call_method(const std::string &address, unsigned port, const std::string &endpoint, const std::string &method, const nlohmann::json &request, nlohmann::json &response){
+    JsonWebsocketClient client(address,port,endpoint);
+    bool result = client.send(method,request);
+    client.get_response(response);
+    return result;
+}
+
+JsonUDPServer::JsonUDPServer(unsigned port):m_port(port){
+
+}
+
+JsonUDPServer::~JsonUDPServer(){
+    stop_listening();
+}
+
+bool JsonUDPServer::start_listening(){
+    if(!is_port_available("localhost",m_port)){
+        std::cout<<"Port "+std::to_string(m_port)+" is unavailable."<<std::endl;
+        return false;
+    }
+    m_buffer_size=4096;
+    m_slen = sizeof(m_si_other);
+    if((m_socket=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){ // If socket for incoming connection could not be created...
+        std::cout<<"Could not create socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+
+    // Set timeout of 10 ms for incoming UDP connection
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 10000;
+    if(setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv) == -1){
+        std::cout<<"Could not set timeout for socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+
+    memset((char *) &m_si_me, 0, sizeof(m_si_me));
+    m_si_me.sin_family = AF_INET;
+    m_si_me.sin_port = htons(m_port);
+    m_si_me.sin_addr.s_addr=htonl (INADDR_ANY);
+    if(bind(m_socket , (struct sockaddr*)&m_si_me, sizeof(m_si_me)) == -1){
+        std::cout<<"Could not bind socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+
+    m_flag_keep_listening=true;
+    m_server_thread = std::thread(&JsonUDPServer::listen,this);
+    return true;
+}
+
+void JsonUDPServer::stop_listening(){
+    m_flag_keep_listening=false;
+    if(m_server_thread.joinable()){
+        m_server_thread.join();
+    }
+    close(m_socket);
+}
+
+void JsonUDPServer::listen(){
+    char buf[m_buffer_size];
+    unsigned payload_size;
+    while(m_flag_keep_listening){
+        memset(&buf[0], 0, sizeof(buf));
+        int reclen=recvfrom(m_socket, buf, m_buffer_size, MSG_WAITALL, (struct sockaddr *) &m_si_other, &m_slen);
+        if(reclen<0){
+            continue;
+        }
+        buf[reclen]='\0';
+        char* msg = buf;
+        char payload[payload_size];
+        strncpy(payload,msg+m_header_size,payload_size);
+        std::string response = read_message(std::string(buf));
+        sendto(m_socket,response.c_str(),strlen(response.c_str()),MSG_CONFIRM,(const struct sockaddr*) &m_si_other, m_slen);
+    }
+}
+
+std::string JsonUDPServer::read_message(const std::string &msg){
+    nlohmann::json json_msg = nlohmann::json::parse(msg);
+    std::pair<bool, std::string> response = message_preprocessing(json_msg);
+    if(!response.first){
+        return response.second;
+    }else{
+        return call_method(json_msg);
+    }
+}
+
+std::string JsonUDPServer::call_method(nlohmann::json &message){
+    nlohmann::json response;
+    try{
+        std::pair<bool,std::string> result=this->message_preprocessing(message);
+        if(result.first){
+            std::string method;
+            message["method"].get_to(method);
+            if(!this->check_if_method_exists(method)){
+                response["result"]="json websocket server: method " + method + " not known";
+                response["error"]=true;
+            }else{
+                if(this->check_arguments(message["request"],m_method_arguments[method],response)){
+                    response["result"]=m_method_callbacks[method](message["request"]);
+                }else{
+                    response["error"]=true;
+                }
+            }
+        }else{
+            response["result"]=result.second;
+            response["error"]=true;
+        }
+    }catch(const nlohmann::detail::type_error& e){
+        std::cout<<e.what()<<std::endl;
+        response["result"]=e.what();
+    }catch(const nlohmann::detail::parse_error& e){
+        std::cout<<e.what()<<std::endl;
+        response["result"]=e.what();
+    }
+    return response.dump();
+}
+
+int JsonUDPServer::get_first_byte(char* msg){
+    int i=0;
+    unsigned payload_size=0;
+    for(i;i<m_buffer_size;i++){ // For every element in the message
+        if(msg[i]==127 && msg[i+1]==127 && msg[i+2]==127 && msg[i+3]==127){ // If start bytes have been found...
+            payload_size=(unsigned)msg[i+m_header_size]; // Read payload size
+            if(msg[i+payload_size+m_header_size-4]==126 && msg[i+payload_size+m_header_size-3]==126 && msg[i+payload_size+m_header_size-2]==126 && msg[i+payload_size+m_header_size-1]==126){ // If end bytes have been found in accordance with the payload size
+                break;
+            }
+        }
+    }
+    if(i<m_buffer_size-m_header_size-payload_size){
+        return i;
+    }else{
+        return -1;
+    }
+}
+
+bool JsonUDPServer::bind_method(const std::string &name, std::function<nlohmann::json (const nlohmann::json &)> method, const std::vector<std::string> &arguments){
+    if(this->check_if_method_exists(name)){
+        msrm_utils::print_error("Cannot bind method with name "+name+" since it already exists.");
+        return false;
+    }
+    m_method_callbacks.insert(std::pair<std::string,std::function<nlohmann::json(const nlohmann::json&)> >(name, method));
+    m_method_arguments.insert(std::pair<std::string,std::vector<std::string> >(name,arguments));
+    return true;
+}
+
+
+
+bool JsonUDPServer::check_if_method_exists(const std::string& method){
+    if(m_method_callbacks.find(method)==m_method_callbacks.end()){
+        return false;
+    }else{
+        return true;
+    }
+}
+
+std::pair<bool,std::string> JsonUDPServer::message_preprocessing(nlohmann::json &message){
+    try{
+        if(message.find("method")==message.end()) return std::pair<bool,std::string>(false,"Message header does not contain <method>.");
+        if(!message["method"].is_string()) return std::pair<bool,std::string>(false,"Method is not a readable string.");
+        if(message.find("request")==message.end()){
+            message["request"]=nlohmann::json();
+        }
+    }catch(const nlohmann::detail::type_error& e){
+        std::cout<<e.what()<<std::endl;
+        return std::pair<bool,std::string>(false,"Json type error.");
+    }
+    return std::pair<bool,std::string>(true,"");
+}
+
+bool JsonUDPServer::check_arguments(const nlohmann::json &request, const std::vector<std::string> &arguments, nlohmann::json &response){
+    if(!request.is_object() && !request.is_null()){
+        response["result"]="Request must be a json object (can be null).";
+        return false;
+    }
+    for(const std::string& a : arguments){
+        if(request.find(a)==request.end()){
+            response["result"]="Could not find parameter "+a+" in request.";
+            return false;
+        }
+    }
+    return true;
+}
+
+JsonUDPClient::JsonUDPClient(const std::string &address, unsigned port, unsigned timeout):m_address(address),m_port(port),m_timeout(timeout){
+
+}
+
+JsonUDPClient::~JsonUDPClient(){
+    close(m_socket);
+}
+
+bool JsonUDPClient::send(const std::string &method, const nlohmann::json &request){
+    m_buffer_size=4096;
+    m_slen=sizeof(m_si_other);
+    if ((m_socket=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) // If socket for outgoing connection could not be created...
+    {
+        std::cout<<"Could not create socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    struct timeval tv;
+    tv.tv_sec = m_timeout;
+    tv.tv_usec = 0;
+    if(setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv) == -1){
+        std::cout<<"Could not set timeout: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    memset((char *) &m_si_other, 0, sizeof(m_si_other));
+    m_si_other.sin_family = AF_INET;
+    m_si_other.sin_port = htons(m_port);
+    if(inet_aton(m_address.c_str(), &m_si_other.sin_addr)!=0){
+        std::cout<<"Invalid address"<<std::endl;
+        return false;
+    }
+
+    nlohmann::json msg_json;
+    msg_json["method"]=method;
+    msg_json["request"]=request;
+    std::string payload = msg_json.dump();
+    const char* msg = payload.c_str();
+    int result = sendto(m_socket, msg, strlen(msg), MSG_CONFIRM, (struct sockaddr *) &m_si_other, m_slen);
+    if(result<0){
+        std::cout<<"Could not send message: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    char buf[m_buffer_size];
+    memset(&buf[0], 0, sizeof(buf));
+    int reclen = recvfrom(m_socket, (char *)buf, m_buffer_size, MSG_WAITALL, (struct sockaddr *) &m_si_other,&m_slen);
+    if(reclen<0){
+        return false;
+    }
+    buf[reclen] = '\0';
+    m_response = nlohmann::json::parse(std::string(buf));
+    if(m_response.find("error")!=m_response.end()){
+        if(m_response.find("result")==m_response.end()){
+            std::cout<<"Unknown error at json websocket server";
+        }else{
+            std::cout<<m_response["result"]<<std::endl;
+        }
+        return false;
+    }else{
+        return true;
+    }
+}
+
+void JsonUDPClient::get_response(nlohmann::json &response){
+    response=m_response;
+}
+
+bool JsonUDPClient::call_method(const std::string &address, unsigned port, const std::string &method, const nlohmann::json &request, nlohmann::json &response, unsigned timeout){
+    JsonUDPClient client(address,port,timeout);
+    bool result = client.send(method,request);
+    client.get_response(response);
+    return result;
 }
 
 }

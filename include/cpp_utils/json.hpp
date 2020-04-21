@@ -3,9 +3,9 @@
 #include <array>
 #include <eigen3/Eigen/Core>
 #include <nlohmann/json.hpp>
-#include "cpp_utils/output.hpp"
+#include <iostream>
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 /**
  * Appends the given Eigen::Matrix value to the indicated json array.
@@ -173,8 +173,8 @@ template<typename T,std::size_t S1,std::size_t S2> bool read_json_param(const nl
             return false;
         }
         if(paramJ[key].size()!=param.rows()*param.cols()){
-            print_error("Can not copy json parameter, expected size ("+std::to_string(param.rows()*param.cols())
-                        +") is different from actual one ("+std::to_string(paramJ.size())+").");
+            std::cout<<"Can not copy json parameter, expected size ("<<std::to_string(param.rows()*param.cols())
+                        <<") is different from actual one ("<<std::to_string(paramJ.size())<<")."<<std::endl;
             return false;
         }
         for(unsigned i=0;i<param.cols();i++){

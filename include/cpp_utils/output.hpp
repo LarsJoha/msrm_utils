@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 /**
  * Prints a string in a red font with underline in the console.

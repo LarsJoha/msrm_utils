@@ -1,7 +1,6 @@
 #include "cpp_utils/json.hpp"
-#include "catch/catch.hpp"
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 bool find_json_value(const nlohmann::json& json, const char* key){
     try{

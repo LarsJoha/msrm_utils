@@ -1,4 +1,5 @@
 #include "cpp_utils/system.hpp"
+#include "cpp_utils/output.hpp"
 
 #include <unistd.h>
 #include <linux/limits.h>
@@ -10,9 +11,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "cpp_utils/output.hpp"
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 std::string get_path_executable(char **argv){
     char path_save[PATH_MAX];
@@ -35,41 +35,6 @@ std::string get_path_executable(char **argv){
 bool process_is_running(const std::string &process){
     std::string cmd = "pidof -x " + process + " > /dev/null";
     return system(cmd.c_str()) == 0;
-}
-
-bool is_port_open(unsigned port, const std::string& host){
-
-    int sockfd;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        return false;
-    }
-
-    server = gethostbyname(host.c_str());
-
-    if (server == NULL) {
-        return false;
-    }
-
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr,
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-
-    serv_addr.sin_port = htons(port);
-    bool open;
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
-        open=true;
-    } else {
-        open=false;
-    }
-
-    close(sockfd);
-    return open;
 }
 
 }

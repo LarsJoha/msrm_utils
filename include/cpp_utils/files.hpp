@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <cstring>
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 /**
  * Returns the current working directory i.e. where the executable is located.

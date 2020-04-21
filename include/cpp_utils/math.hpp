@@ -7,27 +7,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 
-namespace cpp_utils {
-
-/**
- * Rotates a 6x1 vector by a 3x3 matrix. Position and rotation components are separately rotated and then stacked back together.
- * @param v_in 6x1 vector to rotate.
- * @param M 3x3 rotation matrix
- * @return A 6x1 rotated vector
- */
-Eigen::Matrix<double,6,1> rotate_vector(const Eigen::Matrix<double,6,1>& v_in, const Eigen::Matrix<double, 3, 3> &M);
-Eigen::Matrix<double,6,1> rotate_vector(const Eigen::Matrix<double,6,1>& v_in, const Eigen::Matrix<double, 4, 4> &M);
-Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,3,1>& v_in, const Eigen::Matrix<double, 3, 3> &M);
-Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,3,1>& v_in, const Eigen::Matrix<double, 4, 4> &M);
-Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,4,4>& v_in, const Eigen::Matrix<double, 3, 3> &M);
-Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,4,4>& v_in, const Eigen::Matrix<double, 4, 4> &M);
-
-Eigen::Matrix<double,3,3> rotate_matrix(const Eigen::Matrix<double,3,3>& M_in,const Eigen::Matrix<double,3,3>& M_rot);
-Eigen::Matrix<double,3,3> rotate_matrix(const Eigen::Matrix<double,3,3>& M_in,const Eigen::Matrix<double,4,4>& M_rot);
-Eigen::Matrix<double,4,4> rotate_matrix(const Eigen::Matrix<double,4,4>& M_in,const Eigen::Matrix<double,3,3>& M_rot);
-Eigen::Matrix<double,4,4> rotate_matrix(const Eigen::Matrix<double,4,4>& M_in,const Eigen::Matrix<double,4,4>& M_rot);
-Eigen::Matrix<double,6,6> rotate_matrix(const Eigen::Matrix<double,6,6>& M_in,const Eigen::Matrix<double,3,3>& M_rot);
-Eigen::Matrix<double,6,6> rotate_matrix(const Eigen::Matrix<double,6,6>& M_in,const Eigen::Matrix<double,4,4>& M_rot);
+namespace msrm_utils {
 
 Eigen::Matrix<double,3,3> invert_matrix(const Eigen::Matrix<double,3,3>& M);
 /**

@@ -1,6 +1,6 @@
 #include "cpp_utils/output.hpp"
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 void print_critical_error(const std::string& str, bool end_line, bool new_line){
     if(new_line){

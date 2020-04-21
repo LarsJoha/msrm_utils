@@ -18,21 +18,20 @@
 #include <map>
 
 #include <simple-websocket-server/server_ws.hpp>
+#include <simple-websocket-server/client_ws.hpp>
 #include <jsonrpccxx/client.hpp>
 #include <jsonrpccxx/server.hpp>
 #include <jsonrpccxx/iclientconnector.hpp>
 #include <httplib/httplib.h>
 
-#include "cpp_utils/json.hpp"
-
-namespace cpp_utils{
+namespace msrm_utils{
 
 /**
  * Pings a specified IP address.
  * @param ipaddr IP address to ping.
- * @return
+ * @return Returns true if ipaddr could be pinged, false otherwise.
  */
-int ping(const char* ipaddr);
+bool ping(const char* ipaddr);
 
 /**
  * Checks whether the given IP address is valid.
@@ -42,18 +41,26 @@ int ping(const char* ipaddr);
 bool is_valid_ip_address(const char *ipaddr);
 
 /**
+ * Check if specified port on specified host is in use.
+ * @param[in] port The port to check.
+ * @param host The host on which to check the port.
+ * @return True if port on host is in use, false otherwise.
+ */
+bool is_port_available(const char* host, unsigned port);
+
+/**
  * Returns the IP address of the computer for the indicated interface.
  * @param iface Network interface to check.
  * @return IP address as std::string for the specified interface.
  */
-std::string get_own_ip(const char* iface);
+std::optional<std::string> get_own_ip(const char* iface);
 
 /**
  * Returns the IP address of the indicated hostname.
  * @param hostname Target hostname.
  * @return IP address as std::string for the specified hostname.
  */
-std::string get_ip_by_hostname(const char* hostname);
+std::optional<std::string> get_ip_by_hostname(const char* hostname);
 
 /**
  * Returns the subnets for all network interfaces.
@@ -65,32 +72,7 @@ std::map<std::string, std::string> get_subnets();
  * Returns all network interfaces.
  * @return A vector of all network interfaces as strings.
  */
-std::vector<std::string> get_ifaces();
-
-/**
- * Makes a call via rpc-protocol to a target server with a specified method and parameters.
- * @param[in] url URL of target server, must be of form "http://<hostname>:<port>", hostname being either the hostname or
- * the ip of the server and port being the port on which the server listens.
- * @param[in] method Name of the method on the server.
- * @param[in] request Request to the method in json format.
- * @param[out] response Response from the method in json format.
- * @param[in] timeout Amount of time to wait for a response from the server until the call is considered a failure.
- * @return True if response is nominal, false if server is not reachable, method is not available, or request is invalid.
- */
-bool rpc_call(const std::string& address, unsigned port, const std::string& method, const jsonrpccxx::positional_parameter &request,  nlohmann::json &response, long timeout=1000, unsigned id=0);
-
-/**
- * Makes a call via rpc-protocol to a target server with a specified method and parameters. This function is intended for threaded use,
- * hence it does not have const references as parameters.
- * @param url URL of target server, must be of form "http://<hostname>:<port>", hostname being either the hostname or
- * the ip of the server and port being the port on which the server listens.
- * @param method Name of the method on the server.
- * @param request Request to the method in json format.
- * @param[out] response Response from the method in json format.
- * @param[in] timeout Amount of time to wait for a response from the server until the call is considered a failure.
- * @return True if response is nominal, false if server is not reachable, method is not available, or request is invalid.
- */
-bool rpc_call_thr(const std::string &address, unsigned port, const std::string &method, nlohmann::json request, nlohmann::json &response,  long timeout=1000, unsigned id=0);
+std::set<std::string> get_ifaces();
 
 /**
  * Converts a given IP address into a default format. E.g. 192.168.4.24 -> 192.168.xx4.x24
@@ -106,94 +88,129 @@ std::string convert_ip_to_default_format(const std::string &ip);
  */
 std::string convert_ip_from_default_format(const std::string &ip);
 
-/**
- * Checks if a given ip address has a valid format.
- * @param ip IP to check.
- * @return True if ip has a valid format, false otherwise.
- */
-bool check_if_valid_ip(const std::string &ip);
-
-
-class CppHttpLibServerConnector {
+class IJsonMethodServer{
 public:
-    explicit CppHttpLibServerConnector(jsonrpccxx::JsonRpcServer& server, const std::string &address, int port);
-    virtual ~CppHttpLibServerConnector();
+    virtual bool start_listening() = 0;
+    virtual void stop_listening() = 0;
+    virtual bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments) = 0;
+};
+
+class JsonRPCServer: public IJsonMethodServer {
+public:
+    JsonRPCServer(const std::string &address, unsigned port);
+    ~JsonRPCServer();
 
     bool start_listening();
     void stop_listening();
+    bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments);
 
 private:
-    std::thread _thread;
-    jsonrpccxx::JsonRpcServer& _server;
-    httplib::Server _httpServer;
-    std::string _address;
-    int _port;
+    std::thread m_server_thread;
+    jsonrpccxx::JsonRpc2Server m_server;
+    httplib::Server m_http_server;
+    const std::string m_address;
+    unsigned m_port;
 };
 
-class CppHttpLibClientConnector : public jsonrpccxx::IClientConnector {
+class JsonRPCClient : public jsonrpccxx::IClientConnector {
 public:
-    explicit CppHttpLibClientConnector(const std::string &host, int port, double timeout=5);
+    JsonRPCClient(const char* host, int port, double timeout);
+
+    bool send(const std::string& method, const nlohmann::json& request);
+    void get_response(nlohmann::json& response);
+    static bool call_method(const std::string& address, unsigned port, const std::string& method, const nlohmann::json& request, nlohmann::json& response, unsigned timeout=1);
+private:
     std::string Send(const std::string &request) override;
-private:
-    httplib::Client _httpClient;
-    double _timeout;
+    jsonrpccxx::JsonRpcClient m_rpc_client;
+    httplib::Client m_http_client;
+    double m_timeout;
+    nlohmann::json m_response;
 };
 
-class UDP{
-public:
-    UDP();
-    ~UDP();
-
-    bool initialize_sender();
-    bool initialize_receiver();
-    bool send_message(const char* msg);
-    bool receive_message(char* msg);
-    void terminate_sender();
-    void terminate_receiver();
-
-private:
-
-    int _s_send;
-    unsigned _port_send;
-    std::string _ip_send;
-    bool _broadcast;
-    bool _multicast;
-
-    int _s_receive;
-    unsigned _port_recv;
-
-
-    unsigned _n_package;
-    unsigned _n_package_last;
-    char _buf[512];
-    struct sockaddr_in _si_other,_si_me;
-    unsigned _slen;
-    unsigned _bufferlength;
-    unsigned _packagesize;
-    unsigned _cnt_lost_packages;
-};
-
-class JsonWebsocketServer{
+class JsonWebsocketServer : public IJsonMethodServer{
 public:
     JsonWebsocketServer(const std::string& address="localhost", unsigned port=9000, unsigned thread_pool_size=1, const std::string& endpoint="");
     ~JsonWebsocketServer();
 
-    void start_listening();
+    bool start_listening();
     void stop_listening();
 
-    bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::set<std::string>& arguments);
+    bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string>& arguments);
 
 private:
 
     std::pair<bool, std::string> message_preprocessing(nlohmann::json &message);
     bool check_if_method_exists(const std::string& method);
-    bool check_arguments(const nlohmann::json& request, const std::set<std::string> &arguments, nlohmann::json& response);
+    bool check_arguments(const nlohmann::json& request, const std::vector<std::string> &arguments, nlohmann::json& response);
 
-    SimpleWeb::SocketServer<SimpleWeb::WS> _server;
-    std::map<std::string, std::function<nlohmann::json(nlohmann::json)> > _methods;
-    std::map<std::string, std::set<std::string> > _arguments;
+    SimpleWeb::SocketServer<SimpleWeb::WS> m_server;
+    std::map<std::string, std::function<nlohmann::json(nlohmann::json)> > m_method_callbacks;
+    std::map<std::string, std::vector<std::string> > m_method_arguments;
+    std::thread m_server_thread;
+};
 
-    std::thread _thread;
+class JsonWebsocketClient{
+public:
+    JsonWebsocketClient(const std::string &address, unsigned port, const std::string &endpoint);
+    bool send(const std::string& method, const nlohmann::json& request);
+    void get_response(nlohmann::json& response);
+    static bool call_method(const std::string& address, unsigned port, const std::string& endpoint, const std::string& method,const nlohmann::json& request,nlohmann::json& response);
+private:
+    SimpleWeb::SocketClient<SimpleWeb::WS> m_client;
+    nlohmann::json m_response;
+    std::atomic<bool> m_error_flag;
+};
+
+class JsonUDPServer : public IJsonMethodServer{
+public:
+
+    JsonUDPServer(unsigned port);
+    ~JsonUDPServer();
+    bool start_listening();
+    void stop_listening();
+    bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments);
+private:
+
+    void listen();
+    int get_first_byte(char *msg);
+    std::string read_message(const std::string& msg);
+    std::string call_method(nlohmann::json &message);
+    bool check_if_method_exists(const std::string& method);
+    bool check_arguments(const nlohmann::json& request, const std::vector<std::string> &arguments, nlohmann::json& response);
+    std::pair<bool, std::string> message_preprocessing(nlohmann::json &message);
+
+    std::map<std::string, std::function<nlohmann::json(nlohmann::json)> > m_method_callbacks;
+    std::map<std::string, std::vector<std::string> > m_method_arguments;
+    std::thread m_server_thread;
+
+    std::atomic<bool> m_flag_keep_listening;
+
+    unsigned m_port;
+    int m_socket;
+    struct sockaddr_in m_si_other,m_si_me;
+    unsigned m_slen;
+    unsigned m_buffer_size;
+    unsigned m_header_size;
+};
+
+class JsonUDPClient{
+public:
+    JsonUDPClient(const std::string& address, unsigned port,unsigned timeout);
+    ~JsonUDPClient();
+    bool send(const std::string& method, const nlohmann::json& request);
+    void get_response(nlohmann::json& response);
+    static bool call_method(const std::string& address, unsigned port, const std::string& method, const nlohmann::json& request, nlohmann::json& response, unsigned timeout=1);
+private:
+    std::string m_address;
+    unsigned m_port;
+    unsigned m_timeout;
+    int m_socket;
+    struct sockaddr_in m_si_other,m_si_me;
+    unsigned m_slen;
+    unsigned m_buffer_size;
+    unsigned m_header_size;
+
+    nlohmann::json m_response;
 };
 
 }

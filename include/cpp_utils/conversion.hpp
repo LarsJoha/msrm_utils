@@ -4,7 +4,7 @@
 
 #include <eigen3/Eigen/Core>
 
-namespace cpp_utils {
+namespace msrm_utils {
 
 /**
  * Converts an Eigen::Matrix type into an std::array type assuming column major.
