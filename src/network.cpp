@@ -63,8 +63,8 @@ bool is_port_available(const char* host, unsigned port){
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     bcopy((char *)server->h_addr,
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
+          (char *)&serv_addr.sin_addr.s_addr,
+          server->h_length);
 
     serv_addr.sin_port = htons(port);
     bool open;
@@ -756,6 +756,258 @@ bool JsonUDPClient::call_method(const std::string &address, unsigned port, const
     bool result = client.send(method,request);
     client.get_response(response);
     return result;
+}
+
+UDPStreamSender::UDPStreamSender(const std::string &address, unsigned port):m_address(address),m_port(port),m_header_size(10),m_packet_cnt(0){
+
+}
+
+UDPStreamSender::~UDPStreamSender(){
+    disconnect();
+}
+
+bool UDPStreamSender::connect(){
+    m_slen=sizeof(m_si_other);
+    if ((m_socket=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) // If socket for outgoing connection could not be created...
+    {
+        std::cout<<"Could not create socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    memset((char *) &m_si_other, 0, sizeof(m_si_other));
+    m_si_other.sin_family = AF_INET;
+    m_si_other.sin_port = htons(m_port);
+    if(inet_aton(m_address.c_str(), &m_si_other.sin_addr)!=0){
+        std::cout<<"Invalid address"<<std::endl;
+        return false;
+    }
+    m_packet_cnt = 0;
+    return true;
+}
+
+bool UDPStreamSender::disconnect(){
+    if(close(m_socket)==-1){
+        std::cout<<"UDPStreamSender: Could not close socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool UDPStreamSender::send(const std::vector<double> payload){
+    // Determine package size: Size of payload * 4 (4 bytes per double) + 4 start bytes + 4 end bytes + package counter + size of payload
+    unsigned package_size=payload.size()*4+m_header_size;
+
+    // Initialize message container and set content to zero.
+    char msg[package_size];
+    for(unsigned i=0;i<package_size;i++){
+        msg[i]=0;
+    }
+
+    // Elements of message are assigned in a sequence, the counter (cnt_byte) is automatically incremented after each assignment via the increment operator ++
+    unsigned cnt_byte=0;
+
+    // The first 4 bytes are start bytes, they are used to identify the message.
+    msg[cnt_byte++]=127;
+    msg[cnt_byte++]=127;
+    msg[cnt_byte++]=127;
+    msg[cnt_byte++]=127;
+
+    // Via the package counter one can check if packages have been lost.
+    msg[cnt_byte++]=m_packet_cnt;
+    m_packet_cnt++;
+    if(m_packet_cnt>=255){ // If the package counter reaches 255, it is reset to 0...
+        m_packet_cnt=0;
+    }
+
+    // The payload size tells the receiver where to find the end bytes and how much to copy.
+    msg[cnt_byte++]=payload.size()*4;
+
+    // A union is used to convert the doubles in the payload into bytes that can be sent via UDP.
+    union {
+        float f;
+        char bytes[4];
+    } q_union;
+    // Every element is converted into 4 bytes (1 double = 4 bytes of memory)
+    for(unsigned i=0;i<payload.size();i++){ // For every element in the payload...
+        q_union.f = (float)payload[i];
+        msg[cnt_byte++]=q_union.bytes[0];
+        msg[cnt_byte++]=q_union.bytes[1];
+        msg[cnt_byte++]=q_union.bytes[2];
+        msg[cnt_byte++]=q_union.bytes[3];
+    }
+    // The end bytes are used to completely identify the message on the receiver side.
+    msg[cnt_byte++]=126;
+    msg[cnt_byte++]=126;
+    msg[cnt_byte++]=126;
+    msg[cnt_byte++]=126;
+
+    // The message is sent out to the peer robot.
+    int err=sendto(m_socket, msg, sizeof(msg) , 0 , (struct sockaddr *) &m_si_other, m_slen)<0;
+    if(err<0){ // If an error occured during sending...
+        std::cout<<"Could not send message: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    return true;
+}
+
+UDPStreamReceiver::UDPStreamReceiver(unsigned port, unsigned buffer_size, unsigned timeout_s, unsigned timeout_us,unsigned max_lost_packets,std::function<void(std::vector<double>&)> payload_callback):
+    m_port(port),m_buffer_size(buffer_size),m_header_size(10),m_packet_cnt(0),m_timeout_s(timeout_s),m_timeout_us(timeout_us),m_max_lost_packets(max_lost_packets),m_payload_callback(payload_callback){
+
+}
+
+UDPStreamReceiver::~UDPStreamReceiver(){
+    disconnect();
+}
+
+bool UDPStreamReceiver::connect(){
+    m_slen = sizeof(m_si_me);
+    if((m_socket=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){ // If socket for incoming connection could not be created...
+        std::cout<<"Could not create socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+
+    // Set timeout of 10 ms for incoming UDP connection
+    struct timeval tv;
+    tv.tv_sec = m_timeout_s;
+    tv.tv_usec = m_timeout_us;
+    if(setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv)==-1){
+        std::cout<<"Could not set socket options: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+
+    memset((char *) &m_si_me, 0, sizeof(m_si_me));
+    m_si_me.sin_family = AF_INET;
+    m_si_me.sin_port = htons(m_port);
+    m_si_me.sin_addr.s_addr=htonl (INADDR_ANY);
+    if(bind(m_socket , (struct sockaddr*)&m_si_me, sizeof(m_si_me))==-1){
+        std::cout<<"Could not bind socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    m_keep_listening=true;
+    m_listen_thread = std::thread(&UDPStreamReceiver::listen,this);
+    return true;
+}
+
+bool UDPStreamReceiver::disconnect(){
+    m_keep_listening=false;
+    if(m_listen_thread.joinable()){
+        m_listen_thread.join();
+    }
+    if(close(m_socket)==-1){
+        std::cout<<"UDPStreamReceiver: Could not close socket: "<<std::strerror(errno)<<std::endl;
+        return false;
+    }
+    return true;
+}
+
+void UDPStreamReceiver::listen(){
+    char buf[m_buffer_size];
+
+    // Variables are initialized
+    bool lost_package=false;
+    bool msg_corrupt=false;
+    bool msg_buffer=false;
+    bool msg_connection_wait=false;
+    bool msg_connection_valid=false;
+    bool msg_connection_lost=false;
+    m_flag_valid_message=false;
+    m_lost_packets_cnt=0;
+    unsigned cnt_no_connection=0;
+    unsigned payload_size=0;
+    // Header size of message (contains 4 start bytes, 4 end bytes, 1 package counter, 1 payload size, naming is not quite correct)
+    unsigned header_size=m_header_size;
+
+    // Loop for incoming messages is started
+    while(m_keep_listening) { // Runs forever if no errors occur...
+        if(!msg_connection_wait){
+            std::cout<<"Waiting for incoming messages...\n";
+            msg_connection_wait=true;
+        }
+        // Current content from the UDP connection is read into the buffer
+        int reclen=recvfrom(m_socket, buf, m_buffer_size, 0, (struct sockaddr *) &m_si_me, &m_slen);
+        if(reclen<0 && m_flag_connected){ // If connection is already established but the received message is invalid...
+            std::cout<<"UDPStreamReceiver: Could not receive message: "<<std::strerror(errno)<<"\n";
+            cnt_no_connection++;
+        }
+
+        char* msg = buf;
+
+        lost_package=true;
+        unsigned i=0;
+        for(i;i<m_buffer_size;i++){ // For every element in the message
+            if(msg[i]==127 && msg[i+1]==127 && msg[i+2]==127 && msg[i+3]==127){ // If start bytes have been found...
+                payload_size=(unsigned)msg[i+5]; // Read payload size
+                if(msg[i+payload_size+header_size-4]==126 && msg[i+payload_size+header_size-3]==126 && msg[i+payload_size+header_size-2]==126 && msg[i+payload_size+header_size-1]==126){ // If end bytes have been found in accordance with the payload size
+                    lost_package=false; // A valid message has been found.
+                    break;
+                }
+            }
+        }
+        if(!((int)msg[i+4]==m_last_packet_number+1 || ((int)msg[i+4]==0 && m_last_packet_number==255))){ // If the last package counter is not one less than the current package counter...
+            //                cpp_utils::print_warning("I am losing packets.");
+        }
+        if(i>=m_buffer_size-payload_size+header_size && reclen==payload_size+header_size && m_flag_connected){ // If the message cannot fit into the buffer but start bytes have been found...
+            if(!msg_buffer){
+                std::cout<<"UDPStreamReceiver: Message reaches over end of buffer. Start of message is byte "<<i<<".\n";
+                msg_buffer=true;
+            }
+            cnt_no_connection++;
+            lost_package=true;
+        }
+        if(reclen!=payload_size+header_size && m_flag_connected){ // If the length of the received message is not equal to required message size and connection has already been established...
+            if(!msg_corrupt){
+                std::cout<<"UDPStreamReceiver: Corrupted message. Received length is "<<reclen<<". Expected length is "<<payload_size+header_size<<".\n";
+                msg_corrupt=true;
+            }
+            cnt_no_connection++;
+            lost_package=true;
+        }
+        if(cnt_no_connection>0 && !lost_package){ // If packages have been lost and the current one is valid...
+            std::cout<<"UDPStreamReceiver: Number of lost packages: "<<m_lost_packets_cnt<<"\n";
+            cnt_no_connection=0;
+            msg_buffer=false;
+            msg_corrupt=false;
+        }
+        m_last_packet_number=(int)msg[i+4]; // Read the package counter
+
+        if(cnt_no_connection>m_max_lost_packets){ // If 20 packages were invalid after a connection has already been established...
+            if(!msg_connection_lost){
+                std::cout<<"UDPStreamReceiver: Lost "<<m_max_lost_packets<<" packets in a row. I assume the network connection is faulty and will terminate.\n";
+                msg_connection_lost=true;
+            }
+            m_keep_listening=false;
+        }
+        if(lost_package){ // If a package was lost...
+            usleep(1000); // Sleep for 1 ms
+            m_flag_valid_message=false; // Indicate an invalid message
+            continue;
+        }else{
+            m_flag_connected=true; // The first time this line is reached, a connection is considered as established.
+            m_flag_valid_message=true; // Indicate a valid message
+            if(!msg_connection_valid){
+                std::cout<<"UDPStreamReceiver: Communication has been established.\n";
+                msg_connection_valid=true;
+            }
+        }
+
+        std::vector<double> payload;
+        payload.reserve(payload_size);
+        // Use a union to convert the bytes in the message into doubles.
+        union {
+            float f;
+            char bytes[4];
+        } q_union;
+        // Read payload
+        for(unsigned j=0;j<payload_size;j+=4){ // For every 4 bytes in the message...
+            q_union.bytes[0]=msg[i+j+6];
+            q_union.bytes[1]=msg[i+j+7];
+            q_union.bytes[2]=msg[i+j+8];
+            q_union.bytes[3]=msg[i+j+9];
+            payload.push_back(q_union.f); // Converted data element is pushed into the payload vector
+        }
+        // Unload the payload. This function has to be defined by the respective telepresence prototype.
+        m_payload_callback(payload);
+    }
+    std::cout<<"UDPStreamReceiver: Incoming communication terminated.\n";
 }
 
 }

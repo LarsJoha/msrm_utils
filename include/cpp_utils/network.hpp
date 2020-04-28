@@ -16,6 +16,7 @@
 #include <cstring>
 #include <set>
 #include <map>
+#include <functional>
 
 #include <simple-websocket-server/server_ws.hpp>
 #include <simple-websocket-server/client_ws.hpp>
@@ -211,6 +212,58 @@ private:
     unsigned m_header_size;
 
     nlohmann::json m_response;
+};
+
+class UDPStreamSender{
+public:
+    UDPStreamSender(const std::string& address, unsigned port);
+    ~UDPStreamSender();
+    bool connect();
+    bool disconnect();
+    bool send(const std::vector<double> payload);
+    bool send(const char* header, const std::vector<double> payload);
+private:
+    std::string m_address;
+    unsigned m_port;
+    int m_socket;
+    struct sockaddr_in m_si_other;
+    unsigned m_slen;
+    unsigned m_buffer_size;
+    unsigned m_header_size;
+
+    unsigned m_packet_cnt;
+};
+
+class UDPStreamReceiver{
+public:
+    UDPStreamReceiver(unsigned port, unsigned buffer_size, unsigned timeout_s, unsigned timeout_us,unsigned max_lost_packets,std::function<void(std::vector<double>&)> payload_callback);
+    ~UDPStreamReceiver();
+    bool connect();
+    bool disconnect();
+    void get_payload(std::vector<double>& payload);
+private:
+    void listen();
+
+    unsigned m_port;
+    int m_socket;
+    struct sockaddr_in m_si_me;
+    unsigned m_slen;
+    unsigned m_buffer_size;
+    unsigned m_header_size;
+
+    unsigned m_packet_cnt;
+    unsigned m_last_packet_number;
+    unsigned m_lost_packets_cnt;
+    unsigned m_max_lost_packets;
+    unsigned m_timeout_s;
+    unsigned m_timeout_us;
+
+    std::thread m_listen_thread;
+    std::atomic<bool> m_keep_listening;
+    std::atomic<bool> m_flag_connected;
+    std::atomic<bool> m_flag_valid_message;
+
+    std::function<void(std::vector<double>&)> m_payload_callback;
 };
 
 }
