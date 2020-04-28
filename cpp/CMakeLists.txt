@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16.0)
-project(cpp_utils
+project(msrm_utils
     LANGUAGES CXX
     )
 
