@@ -2,6 +2,67 @@
 
 namespace msrm_utils {
 
+Eigen::Matrix<double, 6, 1> rotate_vector(const Eigen::Matrix<double, 6, 1> &v_in, const Eigen::Matrix<double,3,3> &M){
+    Eigen::Vector3d v_in_t={v_in[0],v_in[1],v_in[2]};
+    Eigen::Vector3d v_in_r={v_in[3],v_in[4],v_in[5]};
+    Eigen::Vector3d v_out_t=M*v_in_t;
+    Eigen::Vector3d v_out_r=M*v_in_r;
+    Eigen::VectorXd v_out(6);
+    v_out<<v_out_t[0],v_out_t[1],v_out_t[2],v_out_r[0],v_out_r[1],v_out_r[2];
+    return v_out;
+}
+
+Eigen::Matrix<double, 6, 1> rotate_vector(const Eigen::Matrix<double, 6, 1> &v_in, const Eigen::Matrix<double,4,4> &M){
+    Eigen::Matrix<double,3,3> R = M.block<3,3>(0,0);
+    Eigen::Vector3d v_in_t={v_in[0],v_in[1],v_in[2]};
+    Eigen::Vector3d v_in_r={v_in[3],v_in[4],v_in[5]};
+    Eigen::Vector3d v_out_t=R*v_in_t;
+    Eigen::Vector3d v_out_r=R*v_in_r;
+    Eigen::VectorXd v_out(6);
+    v_out<<v_out_t[0],v_out_t[1],v_out_t[2],v_out_r[0],v_out_r[1],v_out_r[2];
+    return v_out;
+}
+
+Eigen::Matrix<double, 3, 1> rotate_vector(const Eigen::Matrix<double, 3, 1> &v_in, const Eigen::Matrix<double,3,3> &M){
+    return M*v_in;
+}
+
+Eigen::Matrix<double, 3, 1> rotate_vector(const Eigen::Matrix<double, 3, 1> &v_in, const Eigen::Matrix<double,4,4> &M){
+    return M.block<3,3>(0,0)*v_in;
+}
+
+Eigen::Matrix<double, 3, 1> rotate_vector(const Eigen::Matrix<double, 4, 4> &v_in, const Eigen::Matrix<double,3,3> &M){
+    return M*v_in.block<3,1>(0,3);
+}
+
+Eigen::Matrix<double, 3, 1> rotate_vector(const Eigen::Matrix<double, 4, 4> &v_in, const Eigen::Matrix<double,4,4> &M){
+    return M.block<3,3>(0,0)*v_in.block<3,1>(0,3);
+}
+
+Eigen::Matrix<double,3,3> rotate_matrix(const Eigen::Matrix<double, 3, 3> &M_in, const Eigen::Matrix<double, 3, 3> &M_rot){
+    return M_rot*M_in;
+}
+
+Eigen::Matrix<double,3,3> rotate_matrix(const Eigen::Matrix<double, 3, 3> &M_in, const Eigen::Matrix<double, 4, 4> &M_rot){
+    return M_rot.block<3,3>(0,0)*M_in;
+}
+
+Eigen::Matrix<double,4,4> rotate_matrix(const Eigen::Matrix<double,4,4>& M_in,const Eigen::Matrix<double,3,3>& M_rot){
+    Eigen::Matrix<double,4,3> T_rot_1;
+    Eigen::Matrix<double,4,4> T_rot_2;
+    Eigen::Matrix<double,1,3> last_row;
+    last_row<<0,0,0;
+    T_rot_1<<M_rot,
+            last_row;
+    Eigen::Matrix<double,4,1> pos;
+    pos<<0,0,0,1;
+    T_rot_2<<T_rot_1,pos;
+    return T_rot_2*M_in;
+}
+
+Eigen::Matrix<double,4,4> rotate_matrix(const Eigen::Matrix<double,4,4>& M_in,const Eigen::Matrix<double,4,4>& M_rot){
+    return M_rot*M_in;
+}
 
 Eigen::Matrix<double,3,3> invert_matrix(const Eigen::Matrix<double, 3, 3> &M){
     return M.transpose();

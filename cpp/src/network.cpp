@@ -117,9 +117,6 @@ std::optional<std::string> get_own_ip(const char *iface){
 }
 
 std::optional<std::string> get_ip_by_hostname(const char *hostname){
-    if(!ping(hostname)){
-        return {};
-    }
     hostent * record = gethostbyname(hostname);
     if(record == nullptr)
     {

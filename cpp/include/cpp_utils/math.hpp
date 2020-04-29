@@ -9,6 +9,20 @@
 
 namespace msrm_utils {
 
+Eigen::Matrix<double,6,1> rotate_vector(const Eigen::Matrix<double,6,1>& v_in, const Eigen::Matrix<double, 3, 3> &M);
+Eigen::Matrix<double,6,1> rotate_vector(const Eigen::Matrix<double,6,1>& v_in, const Eigen::Matrix<double, 4, 4> &M);
+Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,3,1>& v_in, const Eigen::Matrix<double, 3, 3> &M);
+Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,3,1>& v_in, const Eigen::Matrix<double, 4, 4> &M);
+Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,4,4>& v_in, const Eigen::Matrix<double, 3, 3> &M);
+Eigen::Matrix<double,3,1> rotate_vector(const Eigen::Matrix<double,4,4>& v_in, const Eigen::Matrix<double, 4, 4> &M);
+
+Eigen::Matrix<double,3,3> rotate_matrix(const Eigen::Matrix<double,3,3>& M_in,const Eigen::Matrix<double,3,3>& M_rot);
+Eigen::Matrix<double,3,3> rotate_matrix(const Eigen::Matrix<double,3,3>& M_in,const Eigen::Matrix<double,4,4>& M_rot);
+Eigen::Matrix<double,4,4> rotate_matrix(const Eigen::Matrix<double,4,4>& M_in,const Eigen::Matrix<double,3,3>& M_rot);
+Eigen::Matrix<double,4,4> rotate_matrix(const Eigen::Matrix<double,4,4>& M_in,const Eigen::Matrix<double,4,4>& M_rot);
+Eigen::Matrix<double,6,6> rotate_matrix(const Eigen::Matrix<double,6,6>& M_in,const Eigen::Matrix<double,3,3>& M_rot);
+Eigen::Matrix<double,6,6> rotate_matrix(const Eigen::Matrix<double,6,6>& M_in,const Eigen::Matrix<double,4,4>& M_rot);
+
 Eigen::Matrix<double,3,3> invert_matrix(const Eigen::Matrix<double,3,3>& M);
 /**
  * Inverts a given 4x4 transformation matrix.

@@ -3,12 +3,13 @@
 
 namespace msrm_utils {
 
-//TEST_CASE("ping","[network]"){
-//    REQUIRE(ping("127.0.0.1"));
-//    REQUIRE(ping("0.0.0.0"));
-//    REQUIRE(ping("localhost"));
-//    REQUIRE(!ping("128.0.0.1"));
-//}
+TEST_CASE("ping","[network]"){
+    REQUIRE(ping("192.168.3.121"));
+    REQUIRE(ping("127.0.0.1"));
+    REQUIRE(ping("0.0.0.0"));
+    REQUIRE(ping("localhost"));
+    REQUIRE(!ping("128.0.0.1"));
+}
 
 //TEST_CASE("ip address check","[network]"){
 //    REQUIRE(!is_valid_ip_address("1"));
