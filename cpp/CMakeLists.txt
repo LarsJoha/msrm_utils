@@ -24,9 +24,9 @@ include(cotire)
 
 include_directories(include)
 
-set(SOURCES src/conversion.cpp src/files.cpp src/json.cpp src/math.cpp src/network.cpp src/output.cpp src/system.cpp src/benchmarking.cpp)
-set(HEADER include/cpp_utils/conversion.hpp include/cpp_utils/files.hpp include/cpp_utils/json.hpp include/cpp_utils/math.hpp
-    include/cpp_utils/network.hpp include/cpp_utils/output.hpp include/cpp_utils/system.hpp include/cpp_utils/benchmarking.hpp)
+set(SOURCES src/conversion.cpp src/files.cpp src/json.cpp src/math.cpp src/network.cpp src/output.cpp src/system.cpp src/benchmarking.cpp src/geometry.cpp)
+set(HEADER include/msrm_utils/conversion.hpp include/msrm_utils/files.hpp include/msrm_utils/json.hpp include/msrm_utils/math.hpp
+    include/msrm_utils/network.hpp include/msrm_utils/output.hpp include/msrm_utils/system.hpp include/msrm_utils/benchmarking.hpp include/msrm_utils/geometry.hpp)
 
 add_library(msrm_cpp_utils STATIC ${SOURCES})
 cotire(msrm_cpp_utils)
