@@ -1,4 +1,4 @@
-#include "cpp_utils/benchmarking.hpp"
+#include "msrm_utils/benchmarking.hpp"
 #include "catch/catch.hpp"
 
 namespace msrm_utils {

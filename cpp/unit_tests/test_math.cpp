@@ -1,4 +1,4 @@
-#include "cpp_utils/math.hpp"
+#include "msrm_utils/math.hpp"
 #include "catch/catch.hpp"
 
 namespace msrm_utils {
