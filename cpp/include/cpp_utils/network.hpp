@@ -89,10 +89,25 @@ std::string convert_ip_to_default_format(const std::string &ip);
  */
 std::string convert_ip_from_default_format(const std::string &ip);
 
+/*! Interface for json method servers */
 class IJsonMethodServer{
 public:
+    /**
+     * @brief start_listening When calling this method the server should start listening.
+     * @return Should return true if server start was succesful, false otherwise
+     */
     virtual bool start_listening() = 0;
+    /**
+     * @brief stop_listening When calling this method the server should stop listening
+     */
     virtual void stop_listening() = 0;
+    /**
+     * @brief bind_method Binds a function or method as a callback to the server.
+     * @param name Name of the method when calling the server via network.
+     * @param method Pointer to the function or method.
+     * @param arguments Argument names of the function.
+     * @return
+     */
     virtual bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments) = 0;
 };
 

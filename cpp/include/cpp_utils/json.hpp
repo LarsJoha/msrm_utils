@@ -226,6 +226,7 @@ template<typename T> bool read_json_param(const nlohmann::json& paramJ, const ch
  * @param key Key to search for.
  * @return Returns true if key is found, false otherwise.
  */
+[[deprecated("Use the built-in find method of json objects instead.")]]
 bool find_json_value(const nlohmann::json &json, const char *key);
 
 bool overwrite_valid_json(const nlohmann::json& source, nlohmann::json& sink);
