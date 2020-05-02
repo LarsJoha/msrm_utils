@@ -111,13 +111,36 @@ public:
     virtual bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments) = 0;
 };
 
+/*! An rpc method server based on json.*/
 class JsonRPCServer: public IJsonMethodServer {
 public:
+    /**
+     * @brief JsonRPCServer Constructor
+     * @param address The address to bind to.
+     * @param port The port to bind to.
+     */
     JsonRPCServer(const std::string &address, unsigned port);
+    /**
+     * @brief ~JsonRPCServer The destructor automatically calls stop_listening
+     */
     ~JsonRPCServer();
 
+    /**
+     * @brief start_listening The RPC server starts listening.
+     * @return True if server could be started, false otherwise.
+     */
     bool start_listening();
+    /**
+     * @brief stop_listening Stops the RPC server
+     */
     void stop_listening();
+    /**
+     * @brief bind_method Binds a function or method as a callback to the server.
+     * @param name Name of the method when calling the server via network.
+     * @param method Pointer to the function or method.
+     * @param arguments Argument names of the function.
+     * @return
+     */
     bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments);
 
 private:
@@ -128,12 +151,39 @@ private:
     unsigned m_port;
 };
 
+/*! An RPC client that connects to a server*/
 class JsonRPCClient : public jsonrpccxx::IClientConnector {
 public:
+    /**
+     * @brief JsonRPCClient Client constructor
+     * @param host Hostname of server.
+     * @param port Port of server.
+     * @param timeout Time without answer from server after which the client aborts the call.
+     */
     JsonRPCClient(const char* host, int port, double timeout);
 
+    /**
+     * @brief send Sends a json message to the server.
+     * @param method The server method to call.
+     * @param request The method parameters in a json object.
+     * @return True if call was successful, false otherwise.
+     */
     bool send(const std::string& method, const nlohmann::json& request);
+    /**
+     * @brief get_response Returns the response from the last call.
+     * @param[out] response The response is written into the provided json object.
+     */
     void get_response(nlohmann::json& response);
+    /**
+     * @brief call_method Factory method to directly call a server.
+     * @param address Server address
+     * @param port Server port
+     * @param method Method on server
+     * @param request Method parameters
+     * @param[out] response Response from server
+     * @param timeout Time without answer from server after which the client aborts the call.
+     * @return True if call was successful, false otherwise.
+     */
     static bool call_method(const std::string& address, unsigned port, const std::string& method, const nlohmann::json& request, nlohmann::json& response, unsigned timeout=1);
 private:
     std::string Send(const std::string &request) override;
@@ -143,14 +193,37 @@ private:
     nlohmann::json m_response;
 };
 
+/*! A websocket method server based on json.*/
 class JsonWebsocketServer : public IJsonMethodServer{
 public:
-    JsonWebsocketServer(const std::string& address="localhost", unsigned port=9000, unsigned thread_pool_size=1, const std::string& endpoint="");
+    /**
+     * @brief JsonWebsocketServer Constructor
+     * @param address Address to bind to.
+     * @param port Port to bind to.
+     * @param endpoint Server endpoint
+     */
+    JsonWebsocketServer(const std::string& address="localhost", unsigned port=9000, const std::string& endpoint="");
+    /**
+     * @brief ~JsonWebsocketServer The destructor automatically calls stop_listening
+     */
     ~JsonWebsocketServer();
 
+    /**
+     * @brief start_listening The RPC server starts listening.
+     * @return True if server could be started, false otherwise.
+     */
     bool start_listening();
+    /**
+     * @brief stop_listening Stops the RPC server
+     */
     void stop_listening();
-
+    /**
+     * @brief bind_method Binds a function or method as a callback to the server.
+     * @param name Name of the method when calling the server via network.
+     * @param method Pointer to the function or method.
+     * @param arguments Argument names of the function.
+     * @return
+     */
     bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string>& arguments);
 
 private:
@@ -167,9 +240,35 @@ private:
 
 class JsonWebsocketClient{
 public:
+    /**
+     * @brief JsonRPCClient Client constructor
+     * @param host Hostname of server.
+     * @param port Port of server.
+     * @param endpoint Server endpoint
+     */
     JsonWebsocketClient(const std::string &address, unsigned port, const std::string &endpoint);
+    /**
+     * @brief send Sends a json message to the server.
+     * @param method The server method to call.
+     * @param request The method parameters in a json object.
+     * @return True if call was successful, false otherwise.
+     */
     bool send(const std::string& method, const nlohmann::json& request);
+    /**
+     * @brief get_response Returns the response from the last call.
+     * @param[out] response The response is written into the provided json object.
+     */
     void get_response(nlohmann::json& response);
+    /**
+     * @brief call_method Factory method to directly call a server.
+     * @param address Server address
+     * @param port Server port
+     * @param endpoint Server endpoint
+     * @param method Method on server
+     * @param request Method parameters
+     * @param[out] response Response from server
+     * @return True if call was successful, false otherwise.
+     */
     static bool call_method(const std::string& address, unsigned port, const std::string& endpoint, const std::string& method,const nlohmann::json& request,nlohmann::json& response);
 private:
     SimpleWeb::SocketClient<SimpleWeb::WS> m_client;
@@ -180,10 +279,31 @@ private:
 class JsonUDPServer : public IJsonMethodServer{
 public:
 
+    /**
+     * @brief JsonUDPServer Constructor
+     * @param port The port to bind to.
+     */
     JsonUDPServer(unsigned port);
+    /**
+     * @brief ~JsonUDPServer The destructor automatically calls stop_listening
+     */
     ~JsonUDPServer();
+    /**
+     * @brief start_listening The RPC server starts listening.
+     * @return True if server could be started, false otherwise.
+     */
     bool start_listening();
+    /**
+     * @brief stop_listening Stops the RPC server
+     */
     void stop_listening();
+    /**
+     * @brief bind_method Binds a function or method as a callback to the server.
+     * @param name Name of the method when calling the server via network.
+     * @param method Pointer to the function or method.
+     * @param arguments Argument names of the function.
+     * @return
+     */
     bool bind_method(const std::string& name, std::function<nlohmann::json(const nlohmann::json& request)> method, const std::vector<std::string> &arguments);
 private:
 
@@ -211,10 +331,39 @@ private:
 
 class JsonUDPClient{
 public:
-    JsonUDPClient(const std::string& address, unsigned port,unsigned timeout);
+    /**
+     * @brief JsonRPCClient Client constructor
+     * @param host Hostname of server.
+     * @param port Port of server.
+     * @param timeout Time without answer from server after which the client aborts the call.
+     */
+    JsonUDPClient(const std::string &address, unsigned port, unsigned timeout);
+    /**
+     * @brief ~JsonUDPClient The destructor closes the socket.
+     */
     ~JsonUDPClient();
+    /**
+     * @brief send Sends a json message to the server.
+     * @param method The server method to call.
+     * @param request The method parameters in a json object.
+     * @return True if call was successful, false otherwise.
+     */
     bool send(const std::string& method, const nlohmann::json& request);
+    /**
+     * @brief get_response Returns the response from the last call.
+     * @param[out] response The response is written into the provided json object.
+     */
     void get_response(nlohmann::json& response);
+    /**
+     * @brief call_method Factory method to directly call a server.
+     * @param address Server address
+     * @param port Server port
+     * @param endpoint Server endpoint
+     * @param method Method on server
+     * @param request Method parameters
+     * @param[out] response Response from server
+     * @return True if call was successful, false otherwise.
+     */
     static bool call_method(const std::string& address, unsigned port, const std::string& method, const nlohmann::json& request, nlohmann::json& response, unsigned timeout=1);
 private:
     std::string m_address;
@@ -229,14 +378,35 @@ private:
     nlohmann::json m_response;
 };
 
+/*! UDP client class for sending a payload to a peer.*/
 class UDPStreamSender{
 public:
+    /**
+     * @brief UDPStreamSender Constructor
+     * @param address Server address
+     * @param port Server port
+     */
     UDPStreamSender(const std::string& address, unsigned port);
+    /**
+     * @brief ~UDPStreamSender The destructor automatically calls disconnect
+     */
     ~UDPStreamSender();
+    /**
+     * @brief connect Connects to the server
+     * @return True if connection is successful, false otherwise
+     */
     bool connect();
+    /**
+     * @brief disconnect Disconnects the current connection
+     * @return True if successful, false otherwise
+     */
     bool disconnect();
+    /**
+     * @brief send Send a single message to the server
+     * @param payload A payload of doubles
+     * @return True if successful, false otherwise
+     */
     bool send(const std::vector<double> payload);
-    bool send(const char* header, const std::vector<double> payload);
 private:
     std::string m_address;
     unsigned m_port;
@@ -249,13 +419,33 @@ private:
     unsigned m_packet_cnt;
 };
 
+/*! UDP client class for receiving a payload from a peer.*/
 class UDPStreamReceiver{
 public:
+    /**
+     * @brief UDPStreamReceiver Contructor
+     * @param port Port on which to listen
+     * @param buffer_size Buffer size for incoming messages
+     * @param timeout_s Timeout in seconds
+     * @param timeout_us Timeout in milliseconds
+     * @param max_lost_packets Maximum allowed number of packet before connection is closed
+     * @param payload_callback Callback to function that accepts the payload for unpacking.
+     */
     UDPStreamReceiver(unsigned port, unsigned buffer_size, unsigned timeout_s, unsigned timeout_us,unsigned max_lost_packets,std::function<void(std::vector<double>&)> payload_callback);
+    /**
+     * @brief ~UDPStreamReceiver The destructor automatically calls disconnect
+     */
     ~UDPStreamReceiver();
+    /**
+     * @brief connect Connects to the peer
+     * @return True if connection was successful, false otherwise
+     */
     bool connect();
+    /**
+     * @brief disconnect Disconnects current connection
+     * @return True if connection was successful, false otherwise
+     */
     bool disconnect();
-    void get_payload(std::vector<double>& payload);
 private:
     void listen();
 

@@ -311,7 +311,7 @@ bool JsonRPCClient::call_method(const std::string &address, unsigned port, const
     return result;
 }
 
-JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned port, unsigned thread_pool_size, const std::string& endpoint){
+JsonWebsocketServer::JsonWebsocketServer(const std::string& address, unsigned port, const std::string& endpoint){
     m_server.config.address=address;
     m_server.config.port=port;
     m_server.config.thread_pool_size=10;
