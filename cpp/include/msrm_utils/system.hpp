@@ -5,6 +5,13 @@
 namespace msrm_utils {
 
 /**
+ * @brief Executes the given system command.
+ * @param cmd The command
+ * @return Return of given command
+ */
+std::string exec(const char* cmd);
+
+/**
  * Returns the absolute path of the executable.
  * @param[in] argv Argument list that has been passed to a main function.
  * @return Absolute path of the executable as std::string.
